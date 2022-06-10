@@ -1,60 +1,60 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-public class SynchronousSocketClient
+public class SynchronousSocketListener
 {
 
-    public static void StartClient()
+    // Incoming data from the client.  
+    public static string data = null;
+
+    public static void StartListening()
     {
         // Data buffer for incoming data.  
-        byte[] bytes = new byte[1024];
+        byte[] bytes = new Byte[1024];
 
-        // Connect to a remote device.  
+        // Establish the local endpoint for the socket.  
+        // Dns.GetHostName returns the name of the
+        // host running the application.  
+        IPEndPoint localEndPoint = new (IPAddress.Parse("192.168.1.2"), 9050);
+
+        // Create a TCP/IP socket.  
+        Socket listener = new Socket(AddressFamily.InterNetwork,
+            SocketType.Stream, ProtocolType.Tcp);
+
+        // Bind the socket to the local endpoint and
+        // listen for incoming connections.  
         try
         {
-            // Establish the remote endpoint for the socket.  
-            // This example uses port 11000 on the local computer.  
-            IPEndPoint remoteEP = new IPEndPoint(IPAddress.Parse("192.168.1.2"), 9050);
+            listener.Bind(localEndPoint);
+            listener.Listen(10);
 
-            // Create a TCP/IP  socket.  
-            Socket sender = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-            // Connect the socket to the remote endpoint. Catch any errors.  
-            try
+            // Start listening for connections.  
+            while (true)
             {
-                sender.Connect(remoteEP);
+                Console.WriteLine("Waiting for a connection...");
+                // Program is suspended while waiting for an incoming connection.  
+                Socket handler = listener.Accept();
+                data = null;
+
+                // An incoming connection needs to be processed.  
                 while (true)
                 {
-                    Console.WriteLine("Socket connected to {0}", sender.RemoteEndPoint.ToString());
-
-                    byte[] msg = Encoding.ASCII.GetBytes(Console.ReadLine());
-
-                    int bytesSent = sender.Send(msg);
-
-                    int bytesRec = sender.Receive(bytes);
-                    Console.WriteLine(Encoding.ASCII.GetString(bytes, 0, bytesRec));
-
-
-
-
+                    int bytesRec = handler.Receive(bytes);
+                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                        break;
                 }
-                // Release the socket.  
-                sender.Shutdown(SocketShutdown.Both);
-                sender.Close();
 
-            }
-            catch (ArgumentNullException ane)
-            {
-                Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-            }
-            catch (SocketException se)
-            {
-                Console.WriteLine("SocketException : {0}", se.ToString());
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Unexpected exception : {0}", e.ToString());
+                // Show the data on the console.  
+                Console.WriteLine("Text received : {0}", data);
+
+                // Echo the data back to the client.  
+                byte[] msg = Encoding.ASCII.GetBytes(data);
+
+                handler.Send(msg);
+                handler.Shutdown(SocketShutdown.Both);
+                handler.Close();
             }
 
         }
@@ -62,11 +62,15 @@ public class SynchronousSocketClient
         {
             Console.WriteLine(e.ToString());
         }
+
+        Console.WriteLine("\nPress ENTER to continue...");
+        Console.Read();
+
     }
 
     public static int Main(String[] args)
     {
-        StartClient();
+        StartListening();
         return 0;
     }
 }
